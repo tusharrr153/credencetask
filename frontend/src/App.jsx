@@ -4,12 +4,11 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 function App() {
-  const [formData, setFormData] = useState({ name: "", image: "", summary: "" });
+  const [formData, setFormData] = useState({ name: "", image: "", summary: "", _id: "" });
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(false);
-  const imageInputRef = useRef(null); // Ref for the image input field
+  const imageInputRef = useRef(null);
 
-  // Fetch movies from the server
   useEffect(() => {
     axios
       .get("http://localhost:1000/data")
@@ -18,55 +17,63 @@ function App() {
       })
       .catch((err) => {
         console.error("Error fetching data:", err);
-        toast.error("Failed to fetch DATA. Please try again.");
+        toast.error("Failed to fetch data. Please try again.");
       });
   }, []);
 
-  // Handle form input changes
   const handleChange = (e) => {
     const { id, value, files } = e.target;
     if (id === "image") {
-      setFormData({ ...formData, image: files[0]?.name || "" });
+      // For image file, we store the image file name
+      setFormData({ ...formData, image: files[0] ? URL.createObjectURL(files[0]) : "" });
     } else {
       setFormData({ ...formData, [id]: value });
     }
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!formData.name || !formData.image || !formData.summary) {
+      toast.error("All fields are required");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const response = await axios.post("http://localhost:1000/data", formData);
-
-      if (response.data) {
-        setMovies((prevMovies) => [...prevMovies, response.data]);
-        toast.success("Data added successfully!");
+      if (formData._id) {
+        const response = await axios.put("http://localhost:1000/data", formData);
+        if (response.data) {
+          setMovies((prevMovies) =>
+            prevMovies.map((movie) => (movie._id === formData._id ? response.data : movie))
+          );
+          toast.success("Data updated successfully!");
+        }
+      } else {
+        const response = await axios.post("http://localhost:1000/data", formData);
+        if (response.data) {
+          setMovies((prevMovies) => [...prevMovies, response.data]);
+          toast.success("Data added successfully!");
+        }
       }
 
-      setFormData({ name: "", image: "", summary: "" }); // Clear the form
-      if (imageInputRef.current) imageInputRef.current.value = ""; // Reset the image input field
+      setFormData({ name: "", image: "", summary: "", _id: "" });
+      if (imageInputRef.current) imageInputRef.current.value = "";
     } catch (err) {
       console.error("Error submitting data:", err);
-      toast.error("All fields are required");
+      toast.error("Failed to submit data. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle edit action
   const handleEdit = (movie) => {
-    setFormData({
-      name: movie.name,
-      image: movie.image,
-      summary: movie.summary,
-    });
-    if (imageInputRef.current) imageInputRef.current.value = ""; // Clear the image input field
+    setFormData({ name: movie.name, image: movie.image, summary: movie.summary, _id: movie._id });
+    if (imageInputRef.current) imageInputRef.current.value = "";
     toast.info("Edit mode activated. Make changes and submit.");
   };
 
-  // Handle delete action
   const handleDelete = async (id) => {
     try {
       await axios.delete("http://localhost:1000/data", { data: { _id: id } });
@@ -74,15 +81,14 @@ function App() {
       toast.success("Data deleted successfully!");
     } catch (err) {
       console.error("Error deleting data:", err);
-      toast.error("Failed to delete the data. Please try again.");
+      toast.error("Failed to delete data. Please try again.");
     }
   };
 
   return (
     <>
       <ToastContainer />
-      <div className="flex flex-col gap-10 items-center justify-center w-full h-screen">
-        {/* Form Section */}
+      <div className="flex flex-col gap-10 items-center justify-center w-full ">
         <form
           onSubmit={handleSubmit}
           className="flex flex-col gap-5 items-center justify-center w-96 p-5 border rounded-lg shadow-lg"
@@ -104,8 +110,9 @@ function App() {
             accept="image/*"
             type="file"
             onChange={handleChange}
-            ref={imageInputRef} // Attach the ref to the image input
+            ref={imageInputRef}
           />
+          {formData.image && <img src={formData.image} alt="Preview" className="w-20 h-20 object-cover rounded" />}
 
           <label className="w-full rounded p-1">Summary</label>
           <textarea
@@ -125,7 +132,6 @@ function App() {
           </button>
         </form>
 
-        {/* Table Section */}
         <div className="flex items-center justify-center w-full">
           <table className="border-collapse border border-gray-400">
             <thead>
@@ -140,7 +146,9 @@ function App() {
               {movies.map((movie, index) => (
                 <tr key={index}>
                   <td className="border border-gray-400 px-4 py-2">{movie.name}</td>
-                  <td className="border border-gray-400 px-4 py-2">{movie.image}</td>
+                  <td className="border border-gray-400 px-4 py-2">
+                    <img src={movie.image} alt={movie.name} className="w-20 h-20 object-cover rounded" />
+                  </td>
                   <td className="border border-gray-400 px-4 py-2">{movie.summary}</td>
                   <td className="border border-gray-400 px-4 py-2">
                     <button
