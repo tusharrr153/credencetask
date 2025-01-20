@@ -11,7 +11,7 @@ function App() {
 
   useEffect(() => {
     axios
-      .get("http://localhost:1000/data")
+      .get(`${import.meta.env.VITE_REACT_APP_BACKEND_BASEURL}`)
       .then((response) => {
         setMovies(response.data);
       })
